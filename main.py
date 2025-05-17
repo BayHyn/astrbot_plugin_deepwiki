@@ -11,7 +11,7 @@ from .deepwiki import DeepWikiClient
 @register(
     "astrbot_plugin_deepwiki",
     "Zhalslar",
-    "使用deepwiki查询github仓库信息",
+    "使用deepwiki查询指定github仓库，可作为问答助手",
     "1.0.0",
     "https://github.com/Zhalslar/astrbot_plugin_deepwiki",
 )
