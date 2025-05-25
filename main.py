@@ -12,7 +12,7 @@ from .deepwiki import DeepWikiClient
     "astrbot_plugin_deepwiki",
     "Zhalslar",
     "使用deepwiki查询指定github仓库，可作为问答助手",
-    "1.0.0",
+    "1.0.1",
     "https://github.com/Zhalslar/astrbot_plugin_deepwiki",
 )
 class DeepWikiPlugin(Star):
@@ -34,7 +34,7 @@ class DeepWikiPlugin(Star):
                 user_prompt = " ".join(args[1:])
             query_id = str(uuid.uuid4())
             logger.debug(f"repo_name: {repo_name}, user_prompt: {user_prompt}, query_id: {query_id}")
-            result = self.client.query(repo_name, user_prompt, query_id)
+            result = await self.client.query(repo_name, user_prompt, query_id)
             image = await self.text_to_image(result["chat_results"])
             yield event.image_result(image)
         except Exception as e:

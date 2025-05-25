@@ -1,6 +1,5 @@
-
-import requests
-import time
+import aiohttp
+import asyncio
 from typing import Dict, Any
 from astrbot import logger
 
@@ -23,8 +22,12 @@ class DeepWikiClient:
             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
         }
 
-    def _send_message(
-        self, repo_name: str, user_prompt: str, query_id: str
+    async def _send_message(
+        self,
+        session: aiohttp.ClientSession,
+        repo_name: str,
+        user_prompt: str,
+        query_id: str,
     ) -> Dict[str, Any]:
         payload = {
             "engine_id": "multihop",
@@ -40,18 +43,24 @@ class DeepWikiClient:
         logger.debug("发送用户提示请求:", payload)
 
         try:
-            response = requests.post(self.base_url, headers=self.headers, json=payload)
-            return response.json()
-        except Exception as e:
+            async with session.post(
+                self.base_url, headers=self.headers, json=payload
+            ) as resp:
+                return await resp.json()
+        except aiohttp.ClientError as e:
             logger.error("请求异常:", str(e))
             return {}
 
-    def _get_markdown_data(self, query_id: str) -> Dict[str, Any]:
+    async def _get_markdown_data(
+        self, session: aiohttp.ClientSession, query_id: str
+    ) -> Dict[str, Any]:
         try:
-            response = requests.get(f"{self.base_url}/{query_id}", headers=self.headers)
-            data = response.json()
-            logger.debug("查询结果:", data)
-        except Exception as e:
+            async with session.get(
+                f"{self.base_url}/{query_id}", headers=self.headers
+            ) as resp:
+                data = await resp.json()
+                logger.debug("查询结果:", data)
+        except aiohttp.ClientError as e:
             logger.error("查询异常:", str(e))
             return {"is_error": True, "is_done": False, "content": ""}
 
@@ -78,12 +87,14 @@ class DeepWikiClient:
 
         return {"is_error": False, "is_done": True, "content": markdown_data}
 
-    def _polling_response(self, query_id: str) -> Dict[str, Any]:
+    async def _polling_response(
+        self, session: aiohttp.ClientSession, query_id: str
+    ) -> Dict[str, Any]:
         retry_count = 0
 
         while retry_count < self.max_retries:
             logger.debug(f"轮询中（第 {retry_count + 1}/{self.max_retries} 次）...")
-            result = self._get_markdown_data(query_id)
+            result = await self._get_markdown_data(session, query_id)
 
             if result["is_error"]:
                 raise Exception("deepwiki 响应错误")
@@ -92,30 +103,33 @@ class DeepWikiClient:
                 logger.debug("已完成响应")
                 return result
 
-            time.sleep(self.retry_interval)
+            await asyncio.sleep(self.retry_interval)
             retry_count += 1
 
         return {"is_done": False, "content": "", "error": "响应超时"}
 
-    def query(self, repo_name: str, user_prompt: str, query_id: str) -> Dict[str, Any]:
+    async def query(
+        self, repo_name: str, user_prompt: str, query_id: str
+    ) -> Dict[str, Any]:
         logger.debug(f"开始查询: repo={repo_name}, prompt={user_prompt}, id={query_id}")
         try:
-            send_result = self._send_message(repo_name, user_prompt, query_id)
-            if not send_result or not send_result.get("status"):
-                raise Exception("发送失败")
+            async with aiohttp.ClientSession() as session:
+                send_result = await self._send_message(
+                    session, repo_name, user_prompt, query_id
+                )
+                if not send_result or not send_result.get("status"):
+                    raise Exception("发送失败")
 
-            logger.debug("消息已发送，开始轮询...")
-            response = self._polling_response(query_id)
-            if not response.get("is_done"):
-                raise Exception("轮询超时")
+                logger.debug("消息已发送，开始轮询...")
+                response = await self._polling_response(session, query_id)
+                if not response.get("is_done"):
+                    raise Exception("轮询超时")
 
-            return {
-                "success": True,
-                "chat_results": response.get("content", ""),
-            }
+                return {
+                    "success": True,
+                    "chat_results": response.get("content", ""),
+                }
 
         except Exception as e:
             logger.error("异常:", str(e))
             raise Exception("❌ DeepWiki 查询失败: " + str(e))
-
-
