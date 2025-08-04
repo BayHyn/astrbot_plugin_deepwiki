@@ -69,6 +69,8 @@ git clone https://github.com/Zhalslar/astrbot_plugin_deepwiki
 | /dw 仓库地址 询问内容 |    命令格式，dw写成deepwiki也行     | /dw NapNeko/NapCatQQ 支持接入哪些机器人框架 |
 |     /dw 询问内容      | 不填仓库地址，默认指向AstrBot仓库， |             /dw 怎么对接NapCat              |
 
+注意：查询的仓库必须在deepwiki建立了索引，否则无法查询，请前往官网建立你仓库的索引再查询：https://deepwiki.com/
+
 ### 示例图
 
 ## 👥 贡献指南
